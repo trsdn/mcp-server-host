@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <AssemblyName>HostMcp.Core</AssemblyName>
+    <RootNamespace>HostMcp.Core</RootNamespace>
+
+    <PackageId>HostMcp.Core</PackageId>
+    <Title>HostMcp Core Library</Title>
+    <Description>Emulator independent core for IBM 3270/5250 host terminal automation: screen model, field and coordinate mapping, keystroke mnemonics, and centralized host readiness synchronization. Shared by HostMcp.McpServer and HostMcp.CLI.</Description>
+    <PackageTags>3270;5250;mainframe;terminal;ehllapi;automation;mcp</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).xml</DocumentationFile>
+  </PropertyGroup>
+
+  <!-- Release Build Optimizations -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <Optimize>true</Optimize>
+    <TieredCompilation>true</TieredCompilation>
+    <TieredCompilationQuickJit>true</TieredCompilationQuickJit>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="HostMcp.Core.Tests" />
+    <InternalsVisibleTo Include="HostMcp.ComInterop.Tests" />
+    <InternalsVisibleTo Include="HostMcp.McpServer.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\LICENSE" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="System.Text.Json" />
+    <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+</Project>

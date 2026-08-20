@@ -1,0 +1,24 @@
+{
+  "// note": "Build first: dotnet build HostMcp.sln -c Release. On a machine with 32-bit PCOMM automation, publish with -p:HostMcpPlatform=x86 and point 'command' at that output instead. See docs/PLATFORM.md.",
+  "inputs": [
+    {
+      "id": "hostmcp-provider",
+      "type": "pickString",
+      "description": "Terminal provider to use",
+      "options": ["auto", "pcomm", "ehllapi", "fake"],
+      "default": "auto"
+    }
+  ],
+  "servers": {
+    "host": {
+      "type": "stdio",
+      "command": "${workspaceFolder}/src/HostMcp.McpServer/bin/Release/net9.0-windows/HostMcp.McpServer.exe",
+      "args": [],
+      "env": {
+        "HOSTMCP_PROVIDER": "${input:hostmcp-provider}",
+        "HOSTMCP_READY_TIMEOUT_SECONDS": "30",
+        "HOSTMCP_POLL_INTERVAL_MS": "100"
+      }
+    }
+  }
+}
