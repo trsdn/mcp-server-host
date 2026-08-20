@@ -39,7 +39,7 @@ public static class TerminalProviderFactory
 
         if (includeFake)
         {
-            providers.Add(new FakeTerminalProvider());
+            providers.Add(FakeTerminalProvider.CreateDemo());
         }
 
         return providers;

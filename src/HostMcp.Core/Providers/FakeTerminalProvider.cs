@@ -118,6 +118,15 @@ public sealed class FakeTerminalSession : ITerminalSession
         _hostResponses.Enqueue(response);
     }
 
+    /// <summary>Moves the cursor without going through the async terminal API.</summary>
+    /// <param name="row">1-based row.</param>
+    /// <param name="column">1-based column.</param>
+    public void MoveCursor(int row, int column)
+    {
+        CoordinateMapper.ToOffset(row, column, Rows, Columns);
+        Cursor = new CursorPosition(row, column);
+    }
+
     /// <summary>Clears the presentation space and the field list.</summary>
     public void Clear()
     {
@@ -422,6 +431,54 @@ public sealed class FakeTerminalProvider : ITerminalProvider
         }
 
         return Task.FromResult<ITerminalSession>(session);
+    }
+
+    /// <summary>
+    /// Creates a provider whose session already shows a small sample logon screen.
+    /// </summary>
+    /// <remarks>
+    /// Used by the CLI and the MCP server when <c>HOSTMCP_PROVIDER=fake</c>, so the offline path
+    /// shows a realistic screen with fields and a host reaction instead of 24 blank lines. The
+    /// content is entirely fictional: no real host name, user ID or application appears here.
+    /// </remarks>
+    /// <param name="sessionNames">Session short names to expose. Defaults to a single session "A".</param>
+    /// <returns>The seeded provider.</returns>
+    public static FakeTerminalProvider CreateDemo(params string[] sessionNames)
+    {
+        var provider = new FakeTerminalProvider(sessionNames);
+
+        foreach (var session in provider._sessions.Values)
+        {
+            SeedDemoScreen(session);
+        }
+
+        return provider;
+    }
+
+    private static void SeedDemoScreen(FakeTerminalSession session)
+    {
+        session.Poke(2, 25, "SAMPLE LOGON SCREEN");
+        session.Poke(4, 5, "This is the in-memory demo provider. No host is connected.");
+        session.Poke(8, 5, "Userid  . . . .");
+        session.Poke(10, 5, "Password  . . .");
+        session.Poke(22, 5, "PF3=Exit");
+
+        session.AddField(8, 21, 8, FieldAttributes.None);
+        session.AddField(10, 21, 8, FieldAttributes.Hidden);
+        session.MoveCursor(8, 21);
+
+        // React to the first AID key the way a host would: replace the screen.
+        session.EnqueueHostResponse(s =>
+        {
+            s.Clear();
+            s.Poke(2, 25, "SAMPLE MAIN MENU");
+            s.Poke(5, 5, "1. Enquiry");
+            s.Poke(6, 5, "2. Reports");
+            s.Poke(8, 5, "Option . . .");
+            s.Poke(22, 5, "PF3=Exit");
+            s.AddField(8, 18, 2, FieldAttributes.Numeric);
+            s.MoveCursor(8, 18);
+        });
     }
 
     /// <summary>

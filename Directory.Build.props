@@ -59,8 +59,11 @@
     PCOMM (IBM Personal Communications) registers its COM automation server as 32-bit on
     most installations. Set -p:HostMcpPlatform=x86 (or x64) to force a bitness for the
     whole solution. See docs/PLATFORM.md for guidance on when x86 is required.
+
+    The Roslyn source generator is excluded: analyzers are loaded into the compiler process,
+    which is 64-bit, so an x86 analyzer assembly fails to load (CS8034).
   -->
-  <PropertyGroup Condition="'$(HostMcpPlatform)' != ''">
+  <PropertyGroup Condition="'$(HostMcpPlatform)' != '' AND '$(MSBuildProjectName)' != 'HostMcp.Generators.Mcp'">
     <PlatformTarget>$(HostMcpPlatform)</PlatformTarget>
     <RuntimeIdentifier>win-$(HostMcpPlatform)</RuntimeIdentifier>
     <SelfContained>false</SelfContained>
