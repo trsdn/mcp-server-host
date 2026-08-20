@@ -1,0 +1,80 @@
+name: CI
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  build-and-test:
+    name: Build and test (windows-latest)
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Restore
+        run: dotnet restore HostMcp.sln
+
+      - name: Build
+        run: dotnet build HostMcp.sln --no-restore --configuration Release
+
+      # No emulator is installed on the runner. The test suite must stay green regardless:
+      # every provider is probed, never connected, and the terminal behaviour is covered by
+      # the in-memory fake provider.
+      - name: Test
+        run: dotnet test HostMcp.sln --no-build --configuration Release --logger "trx;LogFileName=test-results.trx" --results-directory artifacts/test-results
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: artifacts/test-results
+          if-no-files-found: ignore
+
+  publish-matrix:
+    name: Publish ${{ matrix.platform }}
+    runs-on: windows-latest
+    needs: build-and-test
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [x86, x64]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      # PCOMM frequently registers its automation objects as 32-bit only, and pcshll32.dll is a
+      # 32-bit library on most installations. Both bitnesses therefore have to keep building.
+      - name: Publish MCP server
+        run: dotnet publish src/HostMcp.McpServer/HostMcp.McpServer.csproj --configuration Release -p:HostMcpPlatform=${{ matrix.platform }} --output artifacts/mcp-server-${{ matrix.platform }}
+
+      - name: Publish CLI
+        run: dotnet publish src/HostMcp.CLI/HostMcp.CLI.csproj --configuration Release -p:HostMcpPlatform=${{ matrix.platform }} --output artifacts/cli-${{ matrix.platform }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: hostmcp-${{ matrix.platform }}
+          path: artifacts
