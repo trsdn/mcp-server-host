@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <RootNamespace>HostMcp.McpServer</RootNamespace>
+    <AssemblyName>HostMcp.McpServer</AssemblyName>
+    <Description>MCP server exposing IBM 3270/5250 host terminal automation tools.</Description>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>mcp-host</ToolCommandName>
+    <PackageId>HostMcp.McpServer</PackageId>
+    <PackageType>McpServer</PackageType>
+    <PackageTags>mcp;server;3270;5250;mainframe;terminal;ehllapi;pcomm</PackageTags>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HostMcp.Core\HostMcp.Core.csproj" />
+    <ProjectReference Include="..\HostMcp.ComInterop\HostMcp.ComInterop.csproj" />
+    <ProjectReference Include="..\HostMcp.Generators.Mcp\HostMcp.Generators.Mcp.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ModelContextProtocol" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include=".mcp\server.json" Pack="true" PackagePath="/.mcp/server.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="HostMcp.McpServer.Tests" />
+  </ItemGroup>
+
+</Project>

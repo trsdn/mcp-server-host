@@ -1,0 +1,37 @@
+{
+  "$schema": "https://modelcontextprotocol.io/schemas/draft/2025-07-09/server.json",
+  "description": "MCP server for IBM 3270/5250 host terminal automation via PCOMM COM/OLE and EHLLAPI.",
+  "name": "io.github.trsdn/mcp-server-host",
+  "packages": [
+    {
+      "registryType": "nuget",
+      "identifier": "HostMcp.McpServer",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "HOSTMCP_PROVIDER",
+          "description": "Terminal provider: auto (default), pcomm, ehllapi or fake.",
+          "isRequired": false
+        },
+        {
+          "name": "HOSTMCP_READY_TIMEOUT_SECONDS",
+          "description": "Timeout in seconds when waiting for the OIA keyboard lock to clear.",
+          "isRequired": false
+        },
+        {
+          "name": "HOSTMCP_POLL_INTERVAL_MS",
+          "description": "Interval in milliseconds between OIA polls.",
+          "isRequired": false
+        }
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/trsdn/mcp-server-host",
+    "source": "github"
+  },
+  "version": "0.1.0"
+}
