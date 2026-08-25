@@ -1,4 +1,9 @@
 # Scans pull requests for vulnerable or license-incompatible dependencies before merging.
+#
+# Requires "Dependency graph" to be enabled under
+# Settings -> Advanced Security. Without it the action fails with
+# "Dependency review is not supported on this repository". This is a repository setting,
+# not something the workflow can turn on.
 
 name: 'Dependency Review'
 
