@@ -1,0 +1,70 @@
+# CodeQL static analysis. This repository has no security scanning at all today, so this is
+# the baseline: security-extended queries over src/ on every push, PR and weekly.
+
+name: "CodeQL"
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - '**.csproj'
+      - '**.sln'
+      - 'Directory.Build.props'
+      - 'Directory.Packages.props'
+      - '.github/workflows/codeql.yml'
+      - '.github/codeql/**'
+  # Deliberately no paths filter for pull_request: once this job is a required status check,
+  # a filtered job never reports on a PR that misses its paths and the PR stays blocked
+  # forever waiting for a check that will never arrive.
+  pull_request:
+    branches: [ "main" ]
+  schedule:
+    - cron: '0 10 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  analyze:
+    name: Analyze Code with CodeQL
+    # windows-latest, not ubuntu: the solution contains net9.0-windows projects that only
+    # restore and build on Windows, and CodeQL needs a real build to extract C#.
+    runs-on: windows-latest
+    timeout-minutes: 360
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'csharp' ]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          config-file: ./.github/codeql/codeql-config.yml
+          queries: +security-extended
+
+      - name: Restore dependencies
+        run: dotnet restore HostMcp.sln
+
+      - name: Build solution
+        run: dotnet build HostMcp.sln --no-restore --configuration Release
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"

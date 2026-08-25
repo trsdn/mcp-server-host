@@ -5,14 +5,47 @@
     <TargetFramework>net9.0-windows</TargetFramework>
     <RootNamespace>HostMcp.McpServer</RootNamespace>
     <AssemblyName>HostMcp.McpServer</AssemblyName>
-    <Description>MCP server exposing IBM 3270/5250 host terminal automation tools.</Description>
+    <Description>Model Context Protocol server exposing IBM 3270/5250 host terminal automation as MCP tools: connect, read the screen and its fields, send text and keystrokes, and wait for host readiness. Windows-only; requires an installed terminal emulator (IBM Personal Communications via COM/OLE, or any EHLLAPI compatible emulator) and the .NET 9 runtime. Without an emulator the server still starts and reports `no_provider` per tool call.</Description>
+    <Title>HostMcp MCP Server</Title>
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>mcp-host</ToolCommandName>
     <PackageId>HostMcp.McpServer</PackageId>
-    <PackageType>McpServer</PackageType>
     <PackageTags>mcp;server;3270;5250;mainframe;terminal;ehllapi;pcomm</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <!--
+    The .NET 9 SDK unconditionally overwrites PackageType with `DotnetTool` when PackAsTool is
+    set, which would hide the package from MCP client discovery. Append McpServer after that.
+  -->
+  <Target Name="_AddMcpServerPackageType" BeforeTargets="GenerateNuspec;Pack">
+    <PropertyGroup>
+      <PackageType>$(PackageType);McpServer</PackageType>
+    </PropertyGroup>
+  </Target>
+
+  <!--
+    Workaround for NETSDK1146: PackAsTool rejects any TFM with a platform identifier, and this
+    project cannot drop `-windows` because it references the Windows-only provider assembly.
+    Blank the identifier out around the validation target only. https://github.com/dotnet/sdk/issues/12055
+  -->
+  <Target Name="HackBeforePackToolValidation" BeforeTargets="_PackToolValidation">
+    <PropertyGroup>
+      <TargetPlatformIdentifier></TargetPlatformIdentifier>
+      <TargetPlatformMoniker></TargetPlatformMoniker>
+    </PropertyGroup>
+  </Target>
+
+  <Target Name="HackAfterPackToolValidation" AfterTargets="_PackToolValidation" BeforeTargets="PackTool">
+    <PropertyGroup>
+      <TargetPlatformIdentifier>Windows</TargetPlatformIdentifier>
+    </PropertyGroup>
+  </Target>
 
   <ItemGroup>
     <ProjectReference Include="..\HostMcp.Core\HostMcp.Core.csproj" />

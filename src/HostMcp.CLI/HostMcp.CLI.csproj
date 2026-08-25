@@ -5,12 +5,37 @@
     <TargetFramework>net9.0-windows</TargetFramework>
     <RootNamespace>HostMcp.CLI</RootNamespace>
     <AssemblyName>hostmcp</AssemblyName>
-    <Description>Command line front end for HostMcp host terminal automation.</Description>
+    <Description>Command line front end for IBM 3270/5250 host terminal automation. Installs as the `hostmcp` .NET tool for scripting and coding agents: connect to a session, read the screen, send keystrokes and wait for host readiness. Windows-only; requires an installed terminal emulator (IBM Personal Communications via COM/OLE, or any EHLLAPI compatible emulator) and the .NET 9 runtime.</Description>
+    <Title>HostMcp CLI</Title>
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>hostmcp</ToolCommandName>
     <PackageId>HostMcp.CLI</PackageId>
+    <PackageTags>3270;5250;mainframe;terminal;ehllapi;pcomm;cli;dotnet-tool;automation</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <!--
+    Workaround for NETSDK1146: PackAsTool rejects any TFM with a platform identifier, and this
+    project cannot drop `-windows` because it references the Windows-only provider assembly.
+    Blank the identifier out around the validation target only. https://github.com/dotnet/sdk/issues/12055
+  -->
+  <Target Name="HackBeforePackToolValidation" BeforeTargets="_PackToolValidation">
+    <PropertyGroup>
+      <TargetPlatformIdentifier></TargetPlatformIdentifier>
+      <TargetPlatformMoniker></TargetPlatformMoniker>
+    </PropertyGroup>
+  </Target>
+
+  <Target Name="HackAfterPackToolValidation" AfterTargets="_PackToolValidation" BeforeTargets="PackTool">
+    <PropertyGroup>
+      <TargetPlatformIdentifier>Windows</TargetPlatformIdentifier>
+    </PropertyGroup>
+  </Target>
 
   <ItemGroup>
     <ProjectReference Include="..\HostMcp.Core\HostMcp.Core.csproj" />

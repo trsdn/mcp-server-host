@@ -4,7 +4,11 @@
     <TargetFramework>net9.0-windows</TargetFramework>
     <RootNamespace>HostMcp.ComInterop</RootNamespace>
     <AssemblyName>HostMcp.ComInterop</AssemblyName>
-    <Description>Emulator providers for HostMcp: IBM Personal Communications (COM/OLE) and generic EHLLAPI.</Description>
+    <PackageId>HostMcp.ComInterop</PackageId>
+    <Title>HostMcp Emulator Providers</Title>
+    <Description>Windows-only terminal emulator providers for HostMcp. Drives IBM 3270/5250 sessions through IBM Personal Communications (PCOMM) COM/OLE automation and through the generic EHLLAPI entry point of any compatible emulator. Requires Windows and an installed, configured terminal emulator; without one the providers report themselves as unavailable instead of failing.</Description>
+    <PackageTags>3270;5250;mainframe;terminal;ehllapi;pcomm;com;ole;interop;windows</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <!-- Required by [LibraryImport] source generated marshalling. -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <EnableComHosting>false</EnableComHosting>
@@ -26,6 +30,10 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="HostMcp.ComInterop.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>
