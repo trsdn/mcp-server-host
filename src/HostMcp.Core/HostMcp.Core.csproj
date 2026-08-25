@@ -10,6 +10,22 @@
 
     <PackageId>HostMcp.Core</PackageId>
     <Title>HostMcp Core Library</Title>
+    <!--
+      Not published to NuGet, deliberately. This assembly is shipped *inside* the
+      HostMcp.McpServer and HostMcp.CLI tool packages, not as a standalone dependency.
+
+      It is not a public API: every method added to IHostTerminalService becomes an MCP tool
+      by design, so the interface is expected to churn with the tool surface. Publishing it
+      would turn each new tool into a breaking change. The assembly also exposes host plumbing
+      that has no meaning outside this process - ToolServices (a mutable static singleton),
+      ToolInvoker and the ToolResults DTOs (the MCP wire format), the McpTool/ToolName
+      attributes (contract with the unpublished source generator), IDelayProvider (a test seam)
+      and FakeTerminalProvider (a test double).
+
+      Publishing is a one-way door, so this stays internal until someone actually needs it and
+      the public surface has been curated for that purpose.
+    -->
+    <IsPackable>false</IsPackable>
     <Description>Emulator independent core for IBM 3270/5250 host terminal automation: screen model, field and coordinate mapping, keystroke mnemonics, and centralized host readiness synchronization. Shared by HostMcp.McpServer and HostMcp.CLI. The library itself is platform neutral, but every provider that drives it is Windows-only and needs an installed 3270/5250 terminal emulator (IBM Personal Communications via COM/OLE, or any EHLLAPI compatible emulator).</Description>
     <PackageTags>3270;5250;mainframe;terminal;ehllapi;automation;mcp</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>

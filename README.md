@@ -158,8 +158,8 @@ dotnet tool install --global HostMcp.McpServer
 dotnet tool install --global HostMcp.CLI
 ```
 
-`HostMcp.Core` and `HostMcp.ComInterop` are also published, for embedding the screen model or
-the emulator providers into your own application.
+`HostMcp.Core` and `HostMcp.ComInterop` are not published separately — both tool packages are
+self-contained and already bundle them.
 
 > Releases are cut from [`.github/workflows/release.yml`](.github/workflows/release.yml) and
 > pushed to nuget.org through Trusted Publishing (OIDC), not a stored API key.

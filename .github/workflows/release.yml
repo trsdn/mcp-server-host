@@ -1,12 +1,15 @@
 name: Release
 
-# Publishes every HostMcp package to NuGet.org and creates the matching GitHub release.
+# Publishes the HostMcp tool packages to NuGet.org and creates the matching GitHub release.
 #
-# Published packages (all share one version):
+# Published packages (both share one version):
 #   HostMcp.McpServer  - .NET tool + MCP server package (`mcp-host`)
 #   HostMcp.CLI        - .NET tool (`hostmcp`)
-#   HostMcp.Core       - emulator independent library
-#   HostMcp.ComInterop - PCOMM / EHLLAPI provider library
+#
+# HostMcp.Core and HostMcp.ComInterop are intentionally NOT published: they ship inside the
+# tool packages and are implementation detail, not a curated public API. See the comment in
+# their .csproj files. Publishing is a one-way door, so they can be added later; they cannot
+# be unpublished.
 #
 # Trigger: workflow_dispatch with a version bump (major/minor/patch) or an explicit version.
 # The version is derived from the latest git tag, the quality gate from ci.yml has to pass,
@@ -176,8 +179,6 @@ jobs:
         shell: pwsh
         run: |
           $projects = @(
-            "src/HostMcp.Core/HostMcp.Core.csproj",
-            "src/HostMcp.ComInterop/HostMcp.ComInterop.csproj",
             "src/HostMcp.CLI/HostMcp.CLI.csproj",
             "src/HostMcp.McpServer/HostMcp.McpServer.csproj"
           )
@@ -186,16 +187,21 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw "dotnet pack failed for $project" }
           }
 
-      - name: Verify expected packages exist
+      # Guards both directions: every intended package must exist, and nothing else may. Core
+      # and ComInterop are IsPackable=false; if that is ever flipped by accident this fails
+      # instead of silently publishing a library we cannot take back.
+      - name: Verify packaged output
         shell: pwsh
         run: |
-          $expected = @(
-            "HostMcp.Core", "HostMcp.ComInterop", "HostMcp.CLI", "HostMcp.McpServer"
-          )
+          $expected = @("HostMcp.CLI", "HostMcp.McpServer")
           foreach ($id in $expected) {
             $file = "./nupkg/$id.$env:VERSION.nupkg"
             if (-not (Test-Path $file)) { throw "Missing package: $file" }
             Write-Output "OK $file"
+          }
+          $actual = @(Get-ChildItem ./nupkg -Filter *.nupkg | ForEach-Object { $_.Name })
+          if ($actual.Count -ne $expected.Count) {
+            throw "Unexpected packages in ./nupkg: $($actual -join ', ')"
           }
 
       - name: Upload packages
@@ -263,11 +269,9 @@ jobs:
         env:
           NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
         run: |
-          # Dependencies before dependents, so a consumer never resolves a package whose
-          # sibling is not indexed yet.
-          $order = @(
-            "HostMcp.Core", "HostMcp.ComInterop", "HostMcp.CLI", "HostMcp.McpServer"
-          )
+          # CLI before McpServer purely for a deterministic order; the two are independent
+          # tool packages and neither depends on the other.
+          $order = @("HostMcp.CLI", "HostMcp.McpServer")
           foreach ($id in $order) {
             $file = "nupkg/$id.$env:VERSION.nupkg"
             if (-not (Test-Path $file)) { throw "Missing package: $file" }
@@ -319,10 +323,8 @@ jobs:
 
           ### Libraries
 
-          | Package | Purpose |
-          |---|---|
-          | \`HostMcp.Core\` | Emulator independent screen model, field mapping, mnemonics, readiness |
-          | \`HostMcp.ComInterop\` | PCOMM COM/OLE and EHLLAPI providers |
+          \`HostMcp.Core\` and \`HostMcp.ComInterop\` are not published separately - both tool
+          packages are self contained and already bundle them.
 
           ### Requirements
 
