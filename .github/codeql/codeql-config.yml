@@ -1,0 +1,24 @@
+# CodeQL configuration for HostMcp
+
+name: "HostMcp CodeQL Configuration"
+disable-default-queries: true
+
+queries:
+  - uses: security-extended
+
+paths:
+  - 'src/**'
+
+paths-ignore:
+  - '**/bin/**'
+  - '**/obj/**'
+  - '**/packages/**'
+  - '**/.nuget/**'
+
+query-filters:
+  # The PCOMM provider talks to a late-bound COM automation object; every call through it is
+  # a dynamic invocation by design and there is no static type to bind against.
+  - exclude:
+      id: cs/invalid-dynamic-call
+      paths:
+        - src/HostMcp.ComInterop/**

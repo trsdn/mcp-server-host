@@ -14,7 +14,13 @@
     <PackageProjectUrl>https://github.com/trsdn/mcp-server-host</PackageProjectUrl>
     <RepositoryUrl>https://github.com/trsdn/mcp-server-host</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <!--
+      An SPDX expression instead of a bundled LICENSE file: nuget.org renders it as a
+      machine readable license and license scanners in consuming pipelines can act on it.
+    -->
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageReleaseNotes>See https://github.com/trsdn/mcp-server-host/releases for release notes.</PackageReleaseNotes>
 
     <!-- Build settings -->
     <Nullable>enable</Nullable>

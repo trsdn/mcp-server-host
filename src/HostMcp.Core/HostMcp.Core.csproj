@@ -10,7 +10,7 @@
 
     <PackageId>HostMcp.Core</PackageId>
     <Title>HostMcp Core Library</Title>
-    <Description>Emulator independent core for IBM 3270/5250 host terminal automation: screen model, field and coordinate mapping, keystroke mnemonics, and centralized host readiness synchronization. Shared by HostMcp.McpServer and HostMcp.CLI.</Description>
+    <Description>Emulator independent core for IBM 3270/5250 host terminal automation: screen model, field and coordinate mapping, keystroke mnemonics, and centralized host readiness synchronization. Shared by HostMcp.McpServer and HostMcp.CLI. The library itself is platform neutral, but every provider that drives it is Windows-only and needs an installed 3270/5250 terminal emulator (IBM Personal Communications via COM/OLE, or any EHLLAPI compatible emulator).</Description>
     <PackageTags>3270;5250;mainframe;terminal;ehllapi;automation;mcp</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
@@ -36,7 +36,6 @@
 
   <ItemGroup>
     <None Include="README.md" Pack="true" PackagePath="\" />
-    <None Include="..\..\LICENSE" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <ItemGroup>

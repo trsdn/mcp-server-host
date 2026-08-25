@@ -1,0 +1,343 @@
+name: Release
+
+# Publishes every HostMcp package to NuGet.org and creates the matching GitHub release.
+#
+# Published packages (all share one version):
+#   HostMcp.McpServer  - .NET tool + MCP server package (`mcp-host`)
+#   HostMcp.CLI        - .NET tool (`hostmcp`)
+#   HostMcp.Core       - emulator independent library
+#   HostMcp.ComInterop - PCOMM / EHLLAPI provider library
+#
+# Trigger: workflow_dispatch with a version bump (major/minor/patch) or an explicit version.
+# The version is derived from the latest git tag, the quality gate from ci.yml has to pass,
+# then the tag is created, the packages are pushed and the GitHub release is published.
+#
+# Required GitHub secret:
+#   NUGET_USER - the NuGet.org *username* (profile name, not the email address).
+#                Authentication itself is OIDC / Trusted Publishing, so there is no API key.
+#                The Trusted Publisher policy for this repository must exist on nuget.org
+#                before the first run, otherwise the login step fails.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_bump:
+        description: 'Version bump type (ignored when a custom version is given)'
+        required: true
+        type: choice
+        default: 'patch'
+        options:
+          - major
+          - minor
+          - patch
+      custom_version:
+        description: 'Custom version (e.g. 1.2.3, overrides version_bump)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_VERSION: '9.0.x'
+  DOTNET_NOLOGO: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Job 1: Determine the release version
+  # ---------------------------------------------------------------------------
+  version:
+    name: Calculate Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.calculate_version.outputs.version }}
+      tag: ${{ steps.calculate_version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Calculate version
+        id: calculate_version
+        env:
+          CUSTOM_VERSION: ${{ inputs.custom_version }}
+          VERSION_BUMP: ${{ inputs.version_bump }}
+        run: |
+          if [ -n "$CUSTOM_VERSION" ]; then
+            VERSION="$CUSTOM_VERSION"
+            echo "Using custom version: ${VERSION}"
+          else
+            LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+            echo "Latest tag: ${LATEST_TAG}"
+            CURRENT_VERSION="${LATEST_TAG#v}"
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+            case "$VERSION_BUMP" in
+              major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+              minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+              patch) PATCH=$((PATCH + 1)) ;;
+            esac
+            VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          fi
+
+          if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Invalid version '$VERSION' (expected MAJOR.MINOR.PATCH)"
+            exit 1
+          fi
+
+          TAG="v${VERSION}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "::error::Tag $TAG already exists"
+            exit 1
+          fi
+
+          echo "New version: ${VERSION}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+  # ---------------------------------------------------------------------------
+  # Job 2: Quality gate - mirrors ci.yml, nothing is published if this fails
+  # ---------------------------------------------------------------------------
+  quality-gate:
+    name: Build and test
+    needs: [version]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore
+        run: dotnet restore HostMcp.sln
+
+      - name: Build
+        run: dotnet build HostMcp.sln --no-restore --configuration Release
+
+      # No emulator is installed on the runner. The suite must stay green regardless: every
+      # provider is probed, never connected, and terminal behaviour is covered by the fake.
+      - name: Test
+        run: dotnet test HostMcp.sln --no-build --configuration Release --logger "trx;LogFileName=test-results.trx" --results-directory artifacts/test-results
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-test-results
+          path: artifacts/test-results
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------------------
+  # Job 3: Pack the NuGet packages
+  # ---------------------------------------------------------------------------
+  pack:
+    name: Pack NuGet packages
+    needs: [version, quality-gate]
+    runs-on: windows-latest
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      # The MCP registry manifest carries its own version fields; they have to match the
+      # package version or MCP clients resolve a package that does not exist.
+      - name: Update .mcp/server.json version
+        shell: pwsh
+        run: |
+          $path = "src/HostMcp.McpServer/.mcp/server.json"
+          $json = Get-Content $path -Raw | ConvertFrom-Json
+          $json.version = $env:VERSION
+          foreach ($package in $json.packages) { $package.version = $env:VERSION }
+          $json | ConvertTo-Json -Depth 10 | Set-Content $path
+          Get-Content $path
+
+      - name: Restore
+        run: dotnet restore HostMcp.sln
+
+      # Packing happens without -p:HostMcpPlatform on purpose: an AnyCPU tool package runs in
+      # whichever bitness the host process picks, and the x86/x64 specific builds are covered
+      # by ci.yml. Pinning a RuntimeIdentifier here would break `dotnet tool install`.
+      - name: Build
+        run: >
+          dotnet build HostMcp.sln --no-restore --configuration Release
+          -p:Version=${{ env.VERSION }}
+          -p:AssemblyVersion=${{ env.VERSION }}.0
+          -p:FileVersion=${{ env.VERSION }}.0
+
+      - name: Pack
+        shell: pwsh
+        run: |
+          $projects = @(
+            "src/HostMcp.Core/HostMcp.Core.csproj",
+            "src/HostMcp.ComInterop/HostMcp.ComInterop.csproj",
+            "src/HostMcp.CLI/HostMcp.CLI.csproj",
+            "src/HostMcp.McpServer/HostMcp.McpServer.csproj"
+          )
+          foreach ($project in $projects) {
+            dotnet pack $project --configuration Release --no-build --output ./nupkg -p:Version=$env:VERSION
+            if ($LASTEXITCODE -ne 0) { throw "dotnet pack failed for $project" }
+          }
+
+      - name: Verify expected packages exist
+        shell: pwsh
+        run: |
+          $expected = @(
+            "HostMcp.Core", "HostMcp.ComInterop", "HostMcp.CLI", "HostMcp.McpServer"
+          )
+          foreach ($id in $expected) {
+            $file = "./nupkg/$id.$env:VERSION.nupkg"
+            if (-not (Test-Path $file)) { throw "Missing package: $file" }
+            Write-Output "OK $file"
+          }
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: nupkg
+          path: nupkg/*.nupkg
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  # Job 4: Tag the release commit once everything built
+  # ---------------------------------------------------------------------------
+  create-tag:
+    name: Create Git Tag
+    needs: [version, pack]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create and push tag
+        env:
+          TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+
+  # ---------------------------------------------------------------------------
+  # Job 5: Publish to NuGet.org via Trusted Publishing (OIDC, no stored API key)
+  # ---------------------------------------------------------------------------
+  publish-nuget:
+    name: Publish to NuGet.org
+    needs: [version, create-tag]
+    runs-on: windows-latest
+    permissions:
+      contents: read
+      id-token: write # required for the NuGet OIDC login
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Download packages
+        uses: actions/download-artifact@v4
+        with:
+          name: nupkg
+          path: nupkg
+
+      - name: NuGet login (OIDC)
+        id: nuget-login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      - name: Push packages
+        shell: pwsh
+        env:
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+        run: |
+          # Dependencies before dependents, so a consumer never resolves a package whose
+          # sibling is not indexed yet.
+          $order = @(
+            "HostMcp.Core", "HostMcp.ComInterop", "HostMcp.CLI", "HostMcp.McpServer"
+          )
+          foreach ($id in $order) {
+            $file = "nupkg/$id.$env:VERSION.nupkg"
+            if (-not (Test-Path $file)) { throw "Missing package: $file" }
+            dotnet nuget push $file `
+              --api-key $env:NUGET_API_KEY `
+              --source https://api.nuget.org/v3/index.json `
+              --skip-duplicate
+            if ($LASTEXITCODE -ne 0) { throw "dotnet nuget push failed for $file" }
+          }
+
+  # ---------------------------------------------------------------------------
+  # Job 6: GitHub release with the .nupkg artifacts attached
+  # ---------------------------------------------------------------------------
+  create-release:
+    name: Create GitHub Release
+    needs: [version, create-tag, publish-nuget]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download packages
+        uses: actions/download-artifact@v4
+        with:
+          name: nupkg
+          path: nupkg
+
+      - name: Create release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.version.outputs.version }}
+          TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          cat > release_notes.md << NOTES
+          ## HostMcp ${VERSION}
+
+          MCP server and CLI for IBM 3270/5250 host terminal automation.
+
+          ### Installation
+
+          \`\`\`powershell
+          # MCP server (for AI assistants)
+          dotnet tool install --global HostMcp.McpServer --version ${VERSION}
+
+          # CLI (for scripting and coding agents)
+          dotnet tool install --global HostMcp.CLI --version ${VERSION}
+          \`\`\`
+
+          ### Libraries
+
+          | Package | Purpose |
+          |---|---|
+          | \`HostMcp.Core\` | Emulator independent screen model, field mapping, mnemonics, readiness |
+          | \`HostMcp.ComInterop\` | PCOMM COM/OLE and EHLLAPI providers |
+
+          ### Requirements
+
+          - Windows
+          - An installed and configured 3270/5250 terminal emulator: IBM Personal Communications
+            (COM/OLE automation) or any EHLLAPI compatible emulator
+          - .NET 9 Runtime or SDK
+          - PCOMM commonly registers its automation objects 32-bit only. If the 64-bit tool
+            cannot see a session, see [docs/PLATFORM.md](https://github.com/trsdn/mcp-server-host/blob/main/docs/PLATFORM.md).
+
+          ### Documentation
+
+          - [README](https://github.com/trsdn/mcp-server-host/blob/main/README.md)
+          NOTES
+
+          gh release create "$TAG" nupkg/*.nupkg \
+            --title "HostMcp $VERSION" \
+            --notes-file release_notes.md

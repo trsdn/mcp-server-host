@@ -146,6 +146,26 @@ decision table is in [docs/PLATFORM.md](docs/PLATFORM.md).
 
 ## Getting started
 
+### Install from NuGet
+
+Both entry points ship as .NET tools (Windows, .NET 9 runtime required):
+
+```powershell
+# MCP server
+dotnet tool install --global HostMcp.McpServer
+
+# CLI
+dotnet tool install --global HostMcp.CLI
+```
+
+`HostMcp.Core` and `HostMcp.ComInterop` are also published, for embedding the screen model or
+the emulator providers into your own application.
+
+> Releases are cut from [`.github/workflows/release.yml`](.github/workflows/release.yml) and
+> pushed to nuget.org through Trusted Publishing (OIDC), not a stored API key.
+
+### Build from source
+
 ```powershell
 git clone https://github.com/trsdn/mcp-server-host
 cd mcp-server-host
