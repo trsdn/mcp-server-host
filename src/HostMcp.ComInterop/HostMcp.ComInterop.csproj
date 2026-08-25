@@ -6,6 +6,14 @@
     <AssemblyName>HostMcp.ComInterop</AssemblyName>
     <PackageId>HostMcp.ComInterop</PackageId>
     <Title>HostMcp Emulator Providers</Title>
+    <!--
+      Not published to NuGet, deliberately - see the same note in HostMcp.Core.csproj. This
+      assembly ships inside the tool packages. Its public surface is low level plumbing
+      (ComObject's IDispatch wrapper, PcommProgIds, the raw EhllapiFunction codes) that is
+      public so the factory and the two host projects can reach it, not because it is a
+      curated API. It also cannot be published without Core, which stays unpublished.
+    -->
+    <IsPackable>false</IsPackable>
     <Description>Windows-only terminal emulator providers for HostMcp. Drives IBM 3270/5250 sessions through IBM Personal Communications (PCOMM) COM/OLE automation and through the generic EHLLAPI entry point of any compatible emulator. Requires Windows and an installed, configured terminal emulator; without one the providers report themselves as unavailable instead of failing.</Description>
     <PackageTags>3270;5250;mainframe;terminal;ehllapi;pcomm;com;ole;interop;windows</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
